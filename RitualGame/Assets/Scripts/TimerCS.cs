@@ -15,7 +15,6 @@ public class TimerCS : MonoBehaviour
 
     private void Awake()
     {
-        timeRemaining = 60f;
         UpdateTimerText();
     }
 

@@ -238,33 +238,60 @@ namespace BreadcrumbAi{
 			We'll cast a line to all available waypoints, if the line hits the way point then we add it to a list of waypoints
 			Now we'll randomly choose a waypoint and return it's position
 		*/
+		// Ritual Game change: the waypoint the Ai last reached, so it doesn't walk straight back to it
+		static private Dictionary<Ai, Transform> lastWaypoint = new Dictionary<Ai, Transform>();
+
+		// Ritual Game change: the Ai walks in a straight line, so only pick waypoints its body can actually get to.
+		// Seeing over something (the ritual table, a pew, a door frame) isn't enough. Stair waypoints are at a
+		// different height, so they only need line of sight (the stair sight blockers keep those honest).
+		static private bool BodyFits(Ai ai, Vector3 target, int sightMask){
+			Vector3 from = ai.transform.position;
+			Vector3 flat = target - from;
+			if(Mathf.Abs(flat.y) > 0.5f) return true;
+			flat.y = 0f;
+			if(flat.sqrMagnitude < 0.01f) return true;
+
+			Collider body = ai.GetComponent<Collider>();
+			float halfHeight = body != null ? body.bounds.extents.y : 1.2f;
+			// ignore anything below knee height (floor seams, ramp toes) so the box only meets real obstacles
+			Vector3 halfExtents = new Vector3(0.45f, halfHeight - 0.3f, 0.45f);
+			Vector3 centre = from + Vector3.up * 0.2f;
+			return !Physics.BoxCast(centre, halfExtents, flat.normalized, Quaternion.LookRotation(flat), flat.magnitude,
+				sightMask & ~ai.playerLayer, QueryTriggerInteraction.Ignore);
+		}
+
 		public static Transform Ai_FindWaypoint(this Ai ai){
+			// Ritual Game change: a waypoint is only visible if nothing solid is between the Ai and that exact waypoint.
+			// The original only checked that the first thing hit was *a* waypoint, so a waypoint behind a wall
+			// counted as visible whenever another waypoint was in front of it, and the Ai walked into the wall.
+			int sightMask = ~(ai.enemyLayer | ai.waypointLayer | ai.breadcrumbLayer);
 			if(ai.Waypoint){
-				if(Physics.Linecast(ai.transform.position, ai.Waypoint.position, out hit, ~(ai.enemyLayer))){
-					if(hit.collider.tag == waypointString){
-						Vector3 waypointPos = ai.Waypoint.position;
-						waypointPos.y = ai.transform.position.y;  /* Todo: Modify this for Ground units only */
-						if(Vector3.Distance(ai.transform.position, waypointPos) < 0.5f) {
-							ai.Waypoint = null;
-						} else {
-							return ai.Waypoint;
-						}
-					} else {
+				if(!Physics.Linecast(ai.transform.position, ai.Waypoint.position, sightMask)){
+					Vector3 waypointPos = ai.Waypoint.position;
+					waypointPos.y = ai.transform.position.y;  /* Todo: Modify this for Ground units only */
+					if(Vector3.Distance(ai.transform.position, waypointPos) < 0.5f) {
+						lastWaypoint[ai] = ai.Waypoint;
 						ai.Waypoint = null;
+					} else {
+						return ai.Waypoint;
 					}
 				} else {
 					ai.Waypoint = null;
 				}
 			}
+			Transform previous;
+			lastWaypoint.TryGetValue(ai, out previous);
 			List<GameObject> selectWaypoint = new List<GameObject>();
 			if(waypoints != null){
 				foreach(GameObject waypoint in waypoints){
-					if(waypoint && Physics.Linecast(ai.transform.position, waypoint.transform.position, out hit, ~(ai.enemyLayer))){
-						if(hit.collider.tag == waypointString){
-							selectWaypoint.Add(waypoint);
-						}
+					if(waypoint && !Physics.Linecast(ai.transform.position, waypoint.transform.position, sightMask) && BodyFits(ai, waypoint.transform.position, sightMask)){
+						selectWaypoint.Add(waypoint);
 					}
 				}
+			}
+			// prefer anywhere except where it just came from (unless that's the only option)
+			if(previous != null && selectWaypoint.Count > 1){
+				selectWaypoint.Remove(previous.gameObject);
 			}
 			int rand = Random.Range(0, selectWaypoint.Count);
 			for(int i =0; i < selectWaypoint.Count; i++){
