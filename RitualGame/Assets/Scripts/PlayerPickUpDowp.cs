@@ -18,7 +18,7 @@ public class PlayerPickUpDowp : MonoBehaviour
         {
             if (objectGrabable == null)
             {
-                float pickUpDistance = 2f;
+                float pickUpDistance = 3f;
                 if (Physics.Raycast(playerCamTransform.position, playerCamTransform.forward, out RaycastHit raycastHit, pickUpDistance))
                 {
                     if (raycastHit.transform.TryGetComponent(out objectGrabable))
