@@ -78070,7 +78070,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bb1c868425d998d4a83fdcd25c917ed0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  timeRemaining: 60
+  timeRemaining: 40
   timerText: {fileID: 201762230}
   Enemy: {fileID: 2558872176437011429, guid: 4326c4cc924cde747bac83273c570764, type: 3}
   spawnPoint: {fileID: 2089293054}
